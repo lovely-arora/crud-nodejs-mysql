@@ -3,7 +3,7 @@ name: 🚀 CI/CD Deploy to EC2
 on:
   push:
     branches:
-      - main  # or your deployment branch
+      - main
 
 jobs:
   deploy:
@@ -11,19 +11,31 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: ✅ Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up SSH key
+      - name: 🔐 Set up SSH key
         run: |
+          echo "🔑 Saving EC2 PEM file"
           echo "${{ secrets.EC2_KEY }}" > key.pem
           chmod 400 key.pem
+          echo "✅ PEM file saved and permissions set"
 
-      - name: SSH into EC2 & deploy
+      - name: 🚀 SSH into EC2 & deploy
         run: |
+          echo "🚪 Connecting to EC2"
           ssh -o StrictHostKeyChecking=no -i key.pem ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
-            cd ~/crud-nodejs-mysql
-            git pull origin main
-            sudo docker-compose down
-            sudo docker-compose up --build -d
+            echo "📁 Changing to app directory"
+            cd ~/crud-nodejs-mysql || { echo "❌ Failed to cd into app folder"; exit 1; }
+
+            echo "📥 Pulling latest code"
+            git pull origin main || { echo "❌ Git pull failed"; exit 1; }
+
+            echo "🛑 Shutting down existing containers"
+            sudo docker-compose down || { echo "❌ Docker down failed"; exit 1; }
+
+            echo "🔁 Building and restarting containers"
+            sudo docker-compose up --build -d || { echo "❌ Docker up failed"; exit 1; }
+
+            echo "✅ Deployment completed on EC2"
           EOF
