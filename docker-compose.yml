@@ -1,0 +1,55 @@
+version: "3.8"
+
+services:
+  frontend:
+    build: ./Frontend
+    container_name: frontend_service
+    volumes:
+      - ./Frontend/views:/app/views       # Shared EJS templates
+    networks:
+      - internal
+
+  backend:
+    build: ./Backend
+    container_name: backend_service
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./Backend:/app                       # Mount backend code
+      - ./Frontend/views:/app/views          # Sync with frontend's EJS views
+    environment:
+      DB_HOST: db
+      DB_USER: root
+      DB_PASSWORD: rootpass
+      DB_NAME: myapp
+      PORT: 5000
+    depends_on:
+      - db
+    networks:
+      - internal
+    command: >
+      sh -c "/wait-for.sh db 3306 && node src/app.js"
+
+  db:
+    image: mysql:8.0
+    container_name: mysql_service
+    restart: always
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: myapp
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./Backend/database/db.sql:/docker-entrypoint-initdb.d/init.sql  # ✅ MySQL reads this on first startup
+    ports:
+      - "3306:3306"
+    networks:
+      - internal
+
+volumes:
+  db_data:
+  ejs_views:
+
+networks:
+  internal:
+    driver: bridge
